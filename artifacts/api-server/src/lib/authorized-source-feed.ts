@@ -317,6 +317,23 @@ function htmlToText(value: string): string {
     .trim();
 }
 
+// JSON API records (e.g. Socrata open data) rarely carry RSS-style fields.
+// Build a text summary from the record's own scalar fields so each record is
+// distinct — otherwise every row shares one fingerprint and new records are
+// silently deduplicated away.
+function jsonRecordToText(value: JsonRecord): string {
+  const parts: string[] = [];
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string" && entry.trim()) {
+      parts.push(`${key}: ${entry.trim()}`);
+    } else if (typeof entry === "number" || typeof entry === "boolean") {
+      parts.push(`${key}: ${String(entry)}`);
+    }
+    if (parts.length >= 10) break;
+  }
+  return parts.join(" · ");
+}
+
 export function feedItemToObservationInput(
   item: JsonRecord,
   sourceUrl: string,
@@ -331,11 +348,14 @@ export function feedItemToObservationInput(
     asText(item.url) ??
     asText(item.external_url) ??
     sourceUrl;
+  const structuredText = jsonRecordToText(item);
   const title =
     asText(item.title) ??
     asText(item.name) ??
     asText(item.headline) ??
-    "Untitled feed item";
+    (structuredText
+      ? structuredText.slice(0, 120)
+      : "Untitled feed item");
   const rawSummary =
     asText(item.content_text) ??
     asText(item.summary) ??
@@ -344,6 +364,7 @@ export function feedItemToObservationInput(
     asText(item.encoded) ??
     asText(item.content) ??
     asText(item.subtitle) ??
+    structuredText ??
     title;
   const summary = htmlToText(rawSummary) || title;
   const publishedAt =

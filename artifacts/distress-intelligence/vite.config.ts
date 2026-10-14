@@ -69,6 +69,13 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    // Local dev: forward API + Clerk proxy calls to the API server process.
+    proxy: {
+      '/api': {
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
     fs: {
       strict: true,
     },
