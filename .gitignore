@@ -51,3 +51,4 @@ Thumbs.db
 # Keep local credentials out of source control; use Replit Secrets.
 .env
 .env.*
+!.env.example
