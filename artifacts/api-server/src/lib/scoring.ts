@@ -112,15 +112,15 @@ function scoreBreakdown(
       contribution:
         inputScore === null
           ? 0
-          : Math.round((inputScore * weight) / 10000 * 1000) / 1000,
+          : Math.round((inputScore * weight) / 10) / 10,
     };
   });
   const score = missing.length
     ? null
     : Math.round(
         breakdown.reduce((total, entry) => total + entry.contribution, 0) *
-          1000,
-      ) / 1000;
+          100,
+      ) / 100;
   return { score, breakdown, missing };
 }
 
@@ -246,7 +246,7 @@ export function evaluateLead(input: ScorableLead): Evaluation {
           weight,
           score: value,
           contribution:
-            value === null ? 0 : Math.round((value * weight) / 1000) / 100,
+            value === null ? 0 : Math.round((value * weight) / 10) / 10,
         };
       },
     );
@@ -255,8 +255,8 @@ export function evaluateLead(input: ScorableLead): Evaluation {
       missing.length === 0
         ? Math.round(
             breakdown.reduce((total, part) => total + part.contribution, 0) *
-              1000,
-          ) / 1000
+              100,
+          ) / 100
         : null;
     result.missingInputs = missing;
 
