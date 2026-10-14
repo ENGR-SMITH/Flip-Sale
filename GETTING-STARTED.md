@@ -179,10 +179,30 @@ API responds.
 2. Open http://localhost:5173 → sign in.
 3. Sources page: watch runs/observations; approve new sources; dismiss noise or
    convert observations into leads.
-4. Leads: score, decide (bid / watch / pass / contract), draft outreach.
-5. Workers page: people near job locations for physical ops (cleanouts,
+4. **From observation to lead (the human-review flow)** — nothing collected
+   ever becomes a lead automatically:
+
+   ```
+   Collected update → Review queue (status: needs_review)
+     ├─ Convert… → YOU confirm two things in the dialog:
+     │    · Lead location / jurisdiction — which county the deal actually
+     │      belongs to (drives field-worker matching and distance later)
+     │    · Next operator action — e.g. "Research owner and draft outreach"
+     └─ Dismiss → ignored permanently
+   ```
+
+   When conversion succeeds, the original collected record (title, source URL,
+   summary, timestamps) is preserved and **attached to the lead as evidence** —
+   you can always show the public record that generated any lead. The
+   observation only leaves the review queue after the backend confirms the
+   lead creation; if the request fails, the item stays in the queue so a
+   failed click never loses a collected update. "Keep in review" closes the
+   dialog without changing anything.
+
+5. Leads: score, decide (bid / watch / pass / contract), draft outreach.
+6. Workers page: people near job locations for physical ops (cleanouts,
    pickups); Jobs page: plan and track field assignments.
-6. `Ctrl+C` to stop everything.
+7. `Ctrl+C` to stop everything.
 
 The client-facing services app (`artifacts/distress-client-services`) is a
 separate Vite app for clients choosing a service class. It is not part of the

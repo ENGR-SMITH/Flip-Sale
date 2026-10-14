@@ -6,16 +6,17 @@ import {
   GetLeadResponse,
   ListLeadsQueryParams,
   ListLeadsResponse,
-  parseLaunchLocation,
   UpdateLeadBody,
   UpdateLeadParams,
   UpdateLeadResponse,
 } from "@workspace/api-zod";
-import { db, leadsTable, sourcesTable, type Lead, type Source } from "@workspace/db";
+import { db, leadsTable, sourcesTable, type Lead } from "@workspace/db";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import { getOwnerId } from "../middlewares/requireAuth";
 import { evaluateLead } from "../lib/scoring";
+import { matchLocationToCountyCoverage } from "../lib/location-match";
+import { countyFromLocationViaCensus } from "../lib/observation-autofill";
 import {
   recordActivity,
   sendNotFound,
@@ -31,17 +32,6 @@ function validationMessage(error: { issues: Array<{ path: PropertyKey[]; message
     .join("; ");
 }
 
-const sourceCountyCodes: Record<string, Source["countyCoverage"][number]> = {
-  "Harris County": "harris",
-  "Fort Bend County": "fort_bend",
-  "Dallas County": "dallas",
-  "Tarrant County": "tarrant",
-};
-
-function sourceCountyForLocation(location: string) {
-  const countyName = parseLaunchLocation(location)?.county.name;
-  return countyName ? sourceCountyCodes[countyName] ?? null : null;
-}
 
 router.get("/leads", async (req, res) => {
   const parsed = ListLeadsQueryParams.safeParse(req.query);
@@ -87,10 +77,10 @@ router.post("/leads", async (req, res) => {
 
   const ownerId = getOwnerId(req);
   const body = parsed.data;
-  if (!parseLaunchLocation(body.location)) {
+  if (!body.location?.trim()) {
     sendValidationError(
       res,
-      "Choose a Texas launch county: Harris, Fort Bend, Dallas, or Tarrant.",
+      "Add a lead location or jurisdiction.",
     );
     return;
   }
@@ -119,14 +109,21 @@ router.post("/leads", async (req, res) => {
       );
       return;
     }
-    const leadCounty = sourceCountyForLocation(body.location);
-    if (
-      !leadCounty ||
-      !approvedSource.countyCoverage.includes(leadCounty)
-    ) {
+    let coverageMatch = matchLocationToCountyCoverage(
+      body.location,
+      approvedSource.countyCoverage,
+    );
+    if (!coverageMatch.matched) {
+      const county = await countyFromLocationViaCensus(body.location);
+      if (county) {
+        const resolved = matchLocationToCountyCoverage(county, approvedSource.countyCoverage);
+        if (resolved.matched) coverageMatch = resolved;
+      }
+    }
+    if (!coverageMatch.matched) {
       sendValidationError(
         res,
-        "The approved source does not cover the selected Texas launch county.",
+        "The approved source does not cover the selected location. Register the county on the source or use Manual operator entry.",
       );
       return;
     }
@@ -232,11 +229,11 @@ router.patch("/leads/:id", async (req, res) => {
   }
   if (
     parsed.data.location !== undefined &&
-    !parseLaunchLocation(parsed.data.location)
+    !parsed.data.location?.trim()
   ) {
     sendValidationError(
       res,
-      "Choose a Texas launch county: Harris, Fort Bend, Dallas, or Tarrant.",
+      "Add a lead location or jurisdiction.",
     );
     return;
   }
@@ -255,8 +252,8 @@ router.patch("/leads/:id", async (req, res) => {
     proposedSourceId !== existing.sourceId ||
     proposedSource !== existing.source;
   const countyChanged =
-    sourceCountyForLocation(proposedLocation) !==
-    sourceCountyForLocation(existing.location);
+    (matchLocationToCountyCoverage(proposedLocation, []).countyName ?? null) !==
+    (matchLocationToCountyCoverage(existing.location, []).countyName ?? null);
   if (attributionChanged || (countyChanged && proposedSourceId !== null)) {
     if (proposedSourceId) {
       const [approvedSource] = await db
@@ -281,14 +278,23 @@ router.patch("/leads/:id", async (req, res) => {
         );
         return;
       }
-      const leadCounty = sourceCountyForLocation(proposedLocation);
+      let editCoverageMatch = matchLocationToCountyCoverage(
+        proposedLocation,
+        approvedSource.countyCoverage,
+      );
+      if (!editCoverageMatch.matched) {
+        const county = await countyFromLocationViaCensus(proposedLocation);
+        if (county) {
+          const resolved = matchLocationToCountyCoverage(county, approvedSource.countyCoverage);
+          if (resolved.matched) editCoverageMatch = resolved;
+        }
+      }
       if (
-        !leadCounty ||
-        !approvedSource.countyCoverage.includes(leadCounty)
+        !editCoverageMatch.matched
       ) {
         sendValidationError(
           res,
-          "The approved source does not cover the selected Texas launch county.",
+          "The approved source does not cover the selected location. Register the county on the source or use Manual operator entry.",
         );
         return;
       }

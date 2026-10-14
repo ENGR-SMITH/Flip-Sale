@@ -1,4 +1,5 @@
 import {
+  AutoFillSourceObservationResponse,
   ConvertSourceObservationToLeadBody,
   ConvertSourceObservationToLeadParams,
   ConvertSourceObservationToLeadResponse,
@@ -16,7 +17,6 @@ import {
   UpdateSourceObservationBody,
   UpdateSourceObservationParams,
   UpdateSourceObservationResponse,
-  parseLaunchLocation,
 } from "@workspace/api-zod";
 import {
   activityTable,
@@ -38,6 +38,9 @@ import {
   enqueueSourceRun,
   refreshApifyRun,
 } from "../lib/apify-source-collector";
+import { suggestObservationFill, countyFromLocationViaCensus } from "../lib/observation-autofill";
+import { matchLocationToCountyCoverage } from "../lib/location-match";
+import { logger } from "../lib/logger";
 import {
   sendNotFound,
   sendValidationError,
@@ -45,12 +48,6 @@ import {
 } from "./utils";
 
 const router: IRouter = Router();
-const launchCountyCodes: Record<string, string> = {
-  "Harris County": "harris",
-  "Fort Bend County": "fort_bend",
-  "Dallas County": "dallas",
-  "Tarrant County": "tarrant",
-};
 
 function validationMessage(error: {
   issues: Array<{ path: PropertyKey[]; message: string }>;
@@ -352,6 +349,47 @@ router.patch("/sources/observations/:id", async (req, res): Promise<void> => {
   );
 });
 
+router.get("/sources/observations/:id/auto-fill", async (req, res): Promise<void> => {
+  const params = UpdateSourceObservationParams.safeParse({
+    id: routeId(req.params.id),
+  });
+  if (!params.success) {
+    sendValidationError(res, validationMessage(params.error));
+    return;
+  }
+
+  const ownerId = getOwnerId(req);
+  const [observation] = await db
+    .select()
+    .from(sourceObservationsTable)
+    .where(
+      and(
+        eq(sourceObservationsTable.id, params.data.id),
+        eq(sourceObservationsTable.ownerId, ownerId),
+      ),
+    )
+    .limit(1);
+  if (!observation) {
+    sendNotFound(res, "Source observation");
+    return;
+  }
+  if (observation.reviewStatus !== "needs_review") {
+    sendValidationError(
+      res,
+      "Only an update awaiting review can be auto-filled.",
+    );
+    return;
+  }
+
+  const suggestion = await suggestObservationFill({
+    title: observation.title ?? "",
+    summary: observation.summary,
+    sourceName: observation.sourceName,
+    assetClass: observation.assetClass,
+  });
+  res.json(AutoFillSourceObservationResponse.parse(suggestion));
+});
+
 router.post(
   "/sources/observations/:id/lead",
   async (req, res): Promise<void> => {
@@ -360,11 +398,20 @@ router.post(
     });
     const parsed = ConvertSourceObservationToLeadBody.safeParse(req.body);
     if (!params.success) {
+      logger.warn(
+        { paramsError: validationMessage(params.error) },
+        "Lead conversion rejected: invalid observation id",
+      );
       sendValidationError(res, validationMessage(params.error));
       return;
     }
     if (!parsed.success) {
-      sendValidationError(res, validationMessage(parsed.error));
+      const detail = validationMessage(parsed.error);
+      logger.warn(
+        { bodyError: detail, bodyKeys: Object.keys(req.body ?? {}) },
+        "Lead conversion rejected: invalid lead payload",
+      );
+      sendValidationError(res, detail);
       return;
     }
 
@@ -409,18 +456,48 @@ router.post(
       );
       return;
     }
-    const parsedLocation = parseLaunchLocation(parsed.data.location);
-    const countyCode = parsedLocation
-      ? launchCountyCodes[parsedLocation.county.name]
-      : null;
-    if (
-      !parsedLocation ||
-      !countyCode ||
-      !entry.source.countyCoverage.includes(countyCode)
-    ) {
+    const coverageMatch = matchLocationToCountyCoverage(
+      parsed.data.location,
+      entry.source.countyCoverage,
+    );
+    if (!coverageMatch.matched) {
+      // Not matched by name/statewide rules: resolve the county through the
+      // Census chain + Gemini fallback once (covers city-level auto-fills like
+      // "FORT WASHINGTON, MD" -> "Prince George's County, MD"), then re-check.
+      const county = await countyFromLocationViaCensus(parsed.data.location);
+      if (county) {
+        const resolved = matchLocationToCountyCoverage(county, entry.source.countyCoverage);
+        if (resolved.matched) {
+          coverageMatch.matched = true;
+          coverageMatch.rule = resolved.rule;
+          coverageMatch.countyName = resolved.countyName;
+        } else {
+          logger.warn(
+            {
+              observationId: entry.observation.id,
+              resolvedCounty: county,
+              countyCoverage: entry.source.countyCoverage,
+              note: 'Resolved county still outside registered coverage.',
+            },
+            'Lead conversion resolution mismatch',
+          );
+        }
+      }
+    }
+    if (!coverageMatch.matched) {
+      logger.warn(
+        {
+          observationId: entry.observation.id,
+          ownerId,
+          location: parsed.data.location,
+          countyCoverage: entry.source.countyCoverage,
+          note: "Conversion rejected: lead location is outside the source's registered county coverage.",
+        },
+        "Lead conversion validation failed",
+      );
       sendValidationError(
         res,
-        "The lead location must be in a Texas launch county covered by this source.",
+        "The lead location must match a county registered on this source. Add the county to the source on the Sources page, or use a county it covers.",
       );
       return;
     }

@@ -1,4 +1,6 @@
 import {
+  autoFillSourceObservation,
+  getAutoFillSourceObservationQueryKey,
   getListSourceObservationsQueryKey,
   getListSourceReviewsQueryKey,
   getListSourceRunsQueryKey,
@@ -290,12 +292,15 @@ export function SourcesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Source | null>(null);
   const [form, setForm] = useState<SourceInput>({ ...blank });
+  const [extraCounties, setExtraCounties] = useState('');
   const [reviewTarget, setReviewTarget] = useState<{ source: Source; status: SourcePermissionStatus } | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const [historySource, setHistorySource] = useState<Source | null>(null);
   const [reviewError, setReviewError] = useState('');
   const [convertTarget, setConvertTarget] = useState<SourceObservation | null>(null);
   const [conversionForm, setConversionForm] = useState({ location: '', nextAction: '' });
+  const [autoFillBusy, setAutoFillBusy] = useState(false);
+  const [autoFillNote, setAutoFillNote] = useState('');
   const [operationMessage, setOperationMessage] = useState('');
   const reviews = useListSourceReviews(historySource?.id || '', {
     query: { enabled: Boolean(historySource), queryKey: getListSourceReviewsQueryKey(historySource?.id || '') },
@@ -313,6 +318,7 @@ export function SourcesPage() {
   const startNew = () => {
     setEditing(null);
     setForm({ ...blank });
+    setExtraCounties('');
     setFormOpen(true);
   };
 
@@ -331,12 +337,24 @@ export function SourcesPage() {
       costRateNotes: source.costRateNotes,
       retentionNotes: source.retentionNotes,
     });
+      setExtraCounties(
+        source.countyCoverage
+          .filter((county) => !counties.some(([code]) => code === county))
+          .join(', '),
+      );
     setFormOpen(true);
   };
 
   const save = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const payload = { ...form, sourceUrl: form.sourceUrl || null };
+    const extraList = extraCounties
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length >= 2);
+    const countyCoverage = Array.from(
+      new Set([...form.countyCoverage, ...extraList]),
+    );
+    const payload = { ...form, sourceUrl: form.sourceUrl || null, countyCoverage };
     const onSuccess = async () => {
       await invalidateSourceData();
       setFormOpen(false);
@@ -402,6 +420,38 @@ export function SourcesPage() {
     );
   };
 
+  const runAutoFill = async (): Promise<void> => {
+    if (!convertTarget || autoFillBusy) return;
+    setAutoFillBusy(true);
+    setAutoFillNote('');
+    try {
+      const suggestion = await cache.fetchQuery({
+        queryKey: getAutoFillSourceObservationQueryKey(convertTarget.id),
+        queryFn: () => autoFillSourceObservation(convertTarget.id),
+      });
+      setConversionForm((form) => ({
+        ...form,
+        location: suggestion.jurisdiction || form.location,
+        nextAction: suggestion.nextAction || form.nextAction,
+      }));
+      setAutoFillNote(
+        suggestion.jurisdiction
+          ? `Suggested jurisdiction “${suggestion.jurisdiction}” (${
+              suggestion.jurisdictionSource === 'census_geocoder'
+                ? 'via US Census Geocoder'
+                : suggestion.jurisdictionSource === 'census_geocoder_city_state'
+                  ? 'city/state match from US Census Geocoder'
+                  : 'taken from the record text'
+            }); next action ${suggestion.nextActionSource === 'gemini' ? 'drafted by Gemini' : 'from the standard template'}. Review before saving.`
+          : 'No address/jurisdiction could be resolved from this record — fill the fields manually. Next action filled from the standard template.',
+      );
+    } catch {
+      setAutoFillNote('Auto Fill could not reach the suggestion services. Fill the fields manually or try again.');
+    } finally {
+      setAutoFillBusy(false);
+    }
+  };
+
   const submitConversion = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!convertTarget) return;
@@ -465,9 +515,20 @@ export function SourcesPage() {
         <div><span>AWAITING HUMAN REVIEW</span><strong>{observations.data?.length ?? '—'}</strong></div>
       </div>
       {operationMessage && <div className="operation-banner"><Check size={15} />{operationMessage}<button onClick={() => setOperationMessage('')} aria-label="Dismiss message">Dismiss</button></div>}
-      {(createSource.isError || updateSource.isError || addReview.isError || collectionUpdate.isError || runCollection.isError || updateObservation.isError || convertObservation.isError) && (
-        <div className="inline-error">The requested change could not be completed. Check the source permission and try again.</div>
-      )}
+      {(() => {
+        const mutationErrors = [
+          createSource.error, updateSource.error, addReview.error,
+          collectionUpdate.error, runCollection.error, updateObservation.error,
+          convertObservation.error,
+        ].filter(Boolean) as Array<{ error?: string }>;
+        const detail = mutationErrors[0]?.error?.trim();
+        if (!mutationErrors.length) return null;
+        return (
+          <div className="inline-error" data-testid="sources-error-banner">
+            The requested change could not be completed. {detail || 'Check the source permission and try again.'}
+          </div>
+        );
+      })()}
       <section className="sources-section">
         <div className="source-section-heading">
           <div><span className="eyebrow">REGISTER & GOVERN</span><h2>Registry records</h2></div>
@@ -567,7 +628,7 @@ export function SourcesPage() {
                   {' '}Permission review and collection activation remain separate operator decisions.
                 </p>
               )}
-              <fieldset className="source-county-field"><legend>County coverage</legend><div className="source-county-options">{counties.map(([county, name]) => <label key={county}><input type="checkbox" checked={form.countyCoverage.includes(county)} onChange={(event) => setForm({ ...form, countyCoverage: event.target.checked ? [...form.countyCoverage, county] : form.countyCoverage.filter((item) => item !== county) })} />{name}</label>)}</div></fieldset>
+              <fieldset className="source-county-field"><legend>County coverage</legend><p className="source-form-notice">Quick picks are the launch counties. You can register any other county below — collection only runs inside registered counties.</p><div className="source-county-options">{counties.map(([county, name]) => <label key={county}><input type="checkbox" checked={form.countyCoverage.includes(county)} onChange={(event) => setForm({ ...form, countyCoverage: event.target.checked ? [...form.countyCoverage, county] : form.countyCoverage.filter((item) => item !== county) })} />{name}</label>)}</div><label className="form-field"><FieldLabel>Other counties (comma-separated, with state)</FieldLabel><input maxLength={800} value={extraCounties} onChange={(event) => setExtraCounties(event.target.value)} placeholder="e.g. Prince George's County, MD; Shelby County, TN" data-testid="input-source-extra-counties" /></label></fieldset>
               <fieldset className="source-county-field"><legend>Asset classes present</legend><div className="source-asset-options">{assets.map((asset) => <label key={asset.value}><input type="checkbox" checked={form.assetClasses.includes(asset.value)} onChange={(event) => setForm({ ...form, assetClasses: event.target.checked ? [...form.assetClasses, asset.value] : form.assetClasses.filter((item) => item !== asset.value) })} />{asset.label}</label>)}</div></fieldset>
               {form.accessMethod === 'approved_scraping_provider' && (
                 <label className="form-field"><FieldLabel>Apify actor</FieldLabel><select required value={form.apifyActorId || ''} onChange={(event) => setForm({ ...form, apifyActorId: (event.target.value || null) as SourceInput['apifyActorId'] })} data-testid="select-source-actor"><option value="">Select an approved actor</option><option value="apify/website-content-crawler">Website content crawler</option><option value="apify/web-scraper">Web scraper</option></select></label>
@@ -580,7 +641,7 @@ export function SourcesPage() {
               <label className="form-field"><FieldLabel>Retention notes</FieldLabel><textarea required maxLength={1200} rows={2} value={form.retentionNotes} onChange={(event) => setForm({ ...form, retentionNotes: event.target.value })} data-testid="input-source-retention-notes" /></label>
               <p className="source-form-notice">New registrations enter the permission queue as pending. Registering or editing a source never activates collection.</p>
               {(createSource.isError || updateSource.isError) && <p className="inline-error">Could not save source details.</p>}
-              <div className="modal-actions"><button className="button button-secondary" type="button" onClick={() => setFormOpen(false)}>Cancel</button><button className="button button-primary" disabled={busy || form.countyCoverage.length === 0 || form.assetClasses.length === 0} data-testid="button-save-source">{busy ? 'Saving…' : editing ? 'Save details' : 'Register pending source'}</button></div>
+              <div className="modal-actions"><button className="button button-secondary" type="button" onClick={() => setFormOpen(false)}>Cancel</button><button className="button button-primary" disabled={busy || (form.countyCoverage.length === 0 && extraCounties.trim().length === 0) || form.assetClasses.length === 0} data-testid="button-save-source">{busy ? 'Saving…' : editing ? 'Save details' : 'Register pending source'}</button></div>
             </form>
           </section>
         </div>
@@ -613,8 +674,10 @@ export function SourcesPage() {
           <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="convert-observation-title">
             <header><div><span className="eyebrow">HUMAN REVIEW / CREATE LEAD</span><h2 id="convert-observation-title">Review before conversion</h2></div><button className="icon-button" onClick={() => setConvertTarget(null)} aria-label="Close">×</button></header>
             <div className="review-target"><strong>{convertTarget.title || 'Untitled public update'}</strong><span>{convertTarget.sourceName} · {label(convertTarget.assetClass)}</span></div>
-            <p className="source-form-notice">Confirm location and next action. The public observation is attached as evidence; it remains in review until this action succeeds.</p>
+            <p className="source-form-notice">Confirm location and next action. The public observation is attached as evidence; it remains in review until this action succeeds. Use Auto Fill to draft both fields — you stay in control and can edit anything before saving.</p>
             <form className="modal-form" onSubmit={submitConversion}>
+              <div className="form-actions-row"><button type="button" className="button button-secondary" onClick={runAutoFill} disabled={autoFillBusy} data-testid="button-auto-fill">{autoFillBusy ? 'Filling…' : '✦ Auto Fill'}</button><small>US Census Geocoder + Gemini suggest; you confirm.</small></div>
+              {autoFillNote && <p className="source-form-notice" data-testid="autofill-note">{autoFillNote}</p>}
               <label className="form-field"><FieldLabel>Lead location / jurisdiction</FieldLabel><input required maxLength={240} value={conversionForm.location} onChange={(event) => setConversionForm({ ...conversionForm, location: event.target.value })} data-testid="input-conversion-location" /></label>
               <label className="form-field"><FieldLabel>Next operator action</FieldLabel><input required maxLength={500} value={conversionForm.nextAction} onChange={(event) => setConversionForm({ ...conversionForm, nextAction: event.target.value })} data-testid="input-conversion-next-action" /></label>
               {convertObservation.isError && <p className="inline-error">The observation could not be converted. It remains in the review queue.</p>}

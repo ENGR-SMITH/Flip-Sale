@@ -7,7 +7,7 @@
  */
 import type { ApifyActorId } from './apifyActorId';
 import type { AssetClass } from './assetClass';
-import type { LaunchCounty } from './launchCounty';
+import type { CountyCoverageEntry } from './countyCoverageEntry';
 import type { SourceAccessMethod } from './sourceAccessMethod';
 
 export interface SourceInput {
@@ -19,7 +19,7 @@ export interface SourceInput {
   /** @nullable */
   sourceUrl: string | null;
   /** @minItems 1 */
-  countyCoverage: LaunchCounty[];
+  countyCoverage: CountyCoverageEntry[];
   /**
      * @minLength 1
      * @maxLength 180

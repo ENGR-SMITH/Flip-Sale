@@ -25,6 +25,12 @@ export const AssetClass = {
   package: 'package',
 } as const;
 
+/**
+ * @minLength 2
+ * @maxLength 80
+ */
+export type CountyCoverageEntry = string;
+
 export type LaunchCounty = typeof LaunchCounty[keyof typeof LaunchCounty];
 
 
@@ -939,7 +945,7 @@ export interface Source {
   name: string;
   /** @nullable */
   sourceUrl: string | null;
-  countyCoverage: LaunchCounty[];
+  countyCoverage: CountyCoverageEntry[];
   sourceOwner: string;
   accessMethod: SourceAccessMethod;
   assetClasses: AssetClass[];
@@ -973,7 +979,7 @@ export interface SourceInput {
   /** @nullable */
   sourceUrl: string | null;
   /** @minItems 1 */
-  countyCoverage: LaunchCounty[];
+  countyCoverage: CountyCoverageEntry[];
   /**
      * @minLength 1
      * @maxLength 180
@@ -1017,7 +1023,7 @@ export interface SourceUpdate {
   /** @nullable */
   sourceUrl?: string | null;
   /** @minItems 1 */
-  countyCoverage?: LaunchCounty[];
+  countyCoverage?: CountyCoverageEntry[];
   /**
      * @minLength 1
      * @maxLength 180
@@ -1139,6 +1145,44 @@ export interface SourceObservationUpdate {
 export interface SourceObservationLeadResult {
   lead: Lead;
   observation: SourceObservation;
+}
+
+export type SourceObservationAutoFillJurisdictionSource = typeof SourceObservationAutoFillJurisdictionSource[keyof typeof SourceObservationAutoFillJurisdictionSource];
+
+
+export const SourceObservationAutoFillJurisdictionSource = {
+  census_geocoder: 'census_geocoder',
+  census_geocoder_city_state: 'census_geocoder_city_state',
+  observation_text: 'observation_text',
+  none: 'none',
+} as const;
+
+export type SourceObservationAutoFillNextActionSource = typeof SourceObservationAutoFillNextActionSource[keyof typeof SourceObservationAutoFillNextActionSource];
+
+
+export const SourceObservationAutoFillNextActionSource = {
+  gemini: 'gemini',
+  fallback: 'fallback',
+} as const;
+
+export interface SourceObservationAutoFill {
+  /**
+     * @maxLength 240
+     * @nullable
+     */
+  jurisdiction: string | null;
+  jurisdictionSource: SourceObservationAutoFillJurisdictionSource;
+  /**
+     * @maxLength 240
+     * @nullable
+     */
+  addressUsed: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  nextAction: string;
+  nextActionSource: SourceObservationAutoFillNextActionSource;
 }
 
 export type ClientServiceRequestStatus = typeof ClientServiceRequestStatus[keyof typeof ClientServiceRequestStatus];

@@ -49,6 +49,7 @@ import type {
   SourceCollectionUpdate,
   SourceInput,
   SourceObservation,
+  SourceObservationAutoFill,
   SourceObservationLeadResult,
   SourceObservationUpdate,
   SourceReview,
@@ -2072,6 +2073,83 @@ export const useConvertSourceObservationToLead = <TError = ErrorType<ErrorRespon
       > => {
       return useMutation(getConvertSourceObservationToLeadMutationOptions(options));
     }
+
+export const getAutoFillSourceObservationUrl = (id: string,) => {
+
+
+
+
+  return `/api/sources/observations/${id}/auto-fill`
+}
+
+/**
+ * @summary Suggest a jurisdiction and a next operator action for a collected update
+ */
+export const autoFillSourceObservation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<SourceObservationAutoFill> => {
+
+  return customFetch<SourceObservationAutoFill>(getAutoFillSourceObservationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAutoFillSourceObservationQueryKey = (id: string,) => {
+    return [
+    `/api/sources/observations/${id}/auto-fill`
+    ] as const;
+    }
+
+
+export const getAutoFillSourceObservationQueryOptions = <TData = Awaited<ReturnType<typeof autoFillSourceObservation>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof autoFillSourceObservation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAutoFillSourceObservationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof autoFillSourceObservation>>> = ({ signal }) => autoFillSourceObservation(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof autoFillSourceObservation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type AutoFillSourceObservationQueryResult = NonNullable<Awaited<ReturnType<typeof autoFillSourceObservation>>>
+export type AutoFillSourceObservationQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Suggest a jurisdiction and a next operator action for a collected update
+ */
+
+export function useAutoFillSourceObservation<TData = Awaited<ReturnType<typeof autoFillSourceObservation>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof autoFillSourceObservation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getAutoFillSourceObservationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateClientServiceRequestUrl = () => {
 

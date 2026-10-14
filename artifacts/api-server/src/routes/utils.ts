@@ -90,6 +90,9 @@ export function serializeLead(row: Lead) {
     latitude: row.latitude,
     longitude: row.longitude,
     evidenceUrl: row.evidenceUrl,
+    nextAction: row.nextAction,
+    nextActionDueAt: row.nextActionDueAt,
+    noNextActionReason: row.noNextActionReason,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

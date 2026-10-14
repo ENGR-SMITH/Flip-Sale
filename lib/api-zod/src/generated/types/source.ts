@@ -7,7 +7,7 @@
  */
 import type { ApifyActorId } from './apifyActorId';
 import type { AssetClass } from './assetClass';
-import type { LaunchCounty } from './launchCounty';
+import type { CountyCoverageEntry } from './countyCoverageEntry';
 import type { SourceAccessMethod } from './sourceAccessMethod';
 import type { SourcePermissionStatus } from './sourcePermissionStatus';
 
@@ -16,7 +16,7 @@ export interface Source {
   name: string;
   /** @nullable */
   sourceUrl: string | null;
-  countyCoverage: LaunchCounty[];
+  countyCoverage: CountyCoverageEntry[];
   sourceOwner: string;
   accessMethod: SourceAccessMethod;
   assetClasses: AssetClass[];

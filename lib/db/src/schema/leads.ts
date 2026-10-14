@@ -92,6 +92,9 @@ export const leadsTable = pgTable(
       onDelete: "set null",
     }),
     distressSignal: text("distress_signal").notNull(),
+    nextAction: text("next_action"),
+    nextActionDueAt: timestamp("next_action_due_at", { withTimezone: true }),
+    noNextActionReason: text("no_next_action_reason"),
     estateAuthorityStatus: estateAuthorityStatusEnum(
       "estate_authority_status",
     )

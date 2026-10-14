@@ -935,11 +935,16 @@ export const AddEstateAuthorityReviewResponse = zod.object({
 /**
  * @summary List registered sources and their current permission review state
  */
+export const listSourcesResponseCountyCoverageItemMin = 2;
+export const listSourcesResponseCountyCoverageItemMax = 80;
+
+
+
 export const ListSourcesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "sourceUrl": zod.string().url().nullable(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])),
+  "countyCoverage": zod.array(zod.string().min(listSourcesResponseCountyCoverageItemMin).max(listSourcesResponseCountyCoverageItemMax)),
   "sourceOwner": zod.string(),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])),
@@ -966,6 +971,9 @@ export const ListSourcesResponse = zod.array(ListSourcesResponseItem)
  */
 export const createSourceBodyNameMax = 180;
 
+export const createSourceBodyCountyCoverageItemMin = 2;
+export const createSourceBodyCountyCoverageItemMax = 80;
+
 
 export const createSourceBodySourceOwnerMax = 180;
 
@@ -985,7 +993,7 @@ export const createSourceBodyRetentionNotesMax = 1200;
 export const CreateSourceBody = zod.object({
   "name": zod.string().min(1).max(createSourceBodyNameMax),
   "sourceUrl": zod.string().url().nullable(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])).min(1),
+  "countyCoverage": zod.array(zod.string().min(createSourceBodyCountyCoverageItemMin).max(createSourceBodyCountyCoverageItemMax)).min(1),
   "sourceOwner": zod.string().min(1).max(createSourceBodySourceOwnerMax),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])).min(1).max(createSourceBodyAssetClassesMax),
@@ -996,11 +1004,16 @@ export const CreateSourceBody = zod.object({
   "retentionNotes": zod.string().min(1).max(createSourceBodyRetentionNotesMax)
 })
 
+export const createSourceResponseCountyCoverageItemMin = 2;
+export const createSourceResponseCountyCoverageItemMax = 80;
+
+
+
 export const CreateSourceResponse = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "sourceUrl": zod.string().url().nullable(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])),
+  "countyCoverage": zod.array(zod.string().min(createSourceResponseCountyCoverageItemMin).max(createSourceResponseCountyCoverageItemMax)),
   "sourceOwner": zod.string(),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])),
@@ -1030,6 +1043,9 @@ export const UpdateSourceParams = zod.object({
 
 export const updateSourceBodyNameMax = 180;
 
+export const updateSourceBodyCountyCoverageItemMin = 2;
+export const updateSourceBodyCountyCoverageItemMax = 80;
+
 
 export const updateSourceBodySourceOwnerMax = 180;
 
@@ -1049,7 +1065,7 @@ export const updateSourceBodyRetentionNotesMax = 1200;
 export const UpdateSourceBody = zod.object({
   "name": zod.string().min(1).max(updateSourceBodyNameMax).optional(),
   "sourceUrl": zod.string().url().nullish(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])).min(1).optional(),
+  "countyCoverage": zod.array(zod.string().min(updateSourceBodyCountyCoverageItemMin).max(updateSourceBodyCountyCoverageItemMax)).min(1).optional(),
   "sourceOwner": zod.string().min(1).max(updateSourceBodySourceOwnerMax).optional(),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']).optional(),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])).min(1).max(updateSourceBodyAssetClassesMax).optional(),
@@ -1060,11 +1076,16 @@ export const UpdateSourceBody = zod.object({
   "retentionNotes": zod.string().min(1).max(updateSourceBodyRetentionNotesMax).optional()
 })
 
+export const updateSourceResponseCountyCoverageItemMin = 2;
+export const updateSourceResponseCountyCoverageItemMax = 80;
+
+
+
 export const UpdateSourceResponse = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "sourceUrl": zod.string().url().nullable(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])),
+  "countyCoverage": zod.array(zod.string().min(updateSourceResponseCountyCoverageItemMin).max(updateSourceResponseCountyCoverageItemMax)),
   "sourceOwner": zod.string(),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])),
@@ -1148,11 +1169,16 @@ export const UpdateSourceCollectionBody = zod.object({
   "intervalHours": zod.number().int().min(updateSourceCollectionBodyIntervalHoursMin).max(updateSourceCollectionBodyIntervalHoursMax)
 })
 
+export const updateSourceCollectionResponseCountyCoverageItemMin = 2;
+export const updateSourceCollectionResponseCountyCoverageItemMax = 80;
+
+
+
 export const UpdateSourceCollectionResponse = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "sourceUrl": zod.string().url().nullable(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])),
+  "countyCoverage": zod.array(zod.string().min(updateSourceCollectionResponseCountyCoverageItemMin).max(updateSourceCollectionResponseCountyCoverageItemMax)),
   "sourceOwner": zod.string(),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])),
@@ -1614,6 +1640,30 @@ export const ConvertSourceObservationToLeadResponse = zod.object({
 
 
 /**
+ * @summary Suggest a jurisdiction and a next operator action for a collected update
+ */
+export const AutoFillSourceObservationParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const autoFillSourceObservationResponseJurisdictionMax = 240;
+
+export const autoFillSourceObservationResponseAddressUsedMax = 240;
+
+export const autoFillSourceObservationResponseNextActionMax = 500;
+
+
+
+export const AutoFillSourceObservationResponse = zod.object({
+  "jurisdiction": zod.string().max(autoFillSourceObservationResponseJurisdictionMax).nullable(),
+  "jurisdictionSource": zod.enum(['census_geocoder', 'census_geocoder_city_state', 'observation_text', 'none']),
+  "addressUsed": zod.string().max(autoFillSourceObservationResponseAddressUsedMax).nullable(),
+  "nextAction": zod.string().min(1).max(autoFillSourceObservationResponseNextActionMax),
+  "nextActionSource": zod.enum(['gemini', 'fallback'])
+})
+
+
+/**
  * @summary Submit a service inquiry from the public client portal
  */
 export const createClientServiceRequestBodyFullNameMax = 160;
@@ -1709,11 +1759,16 @@ export const UpdateClientServiceRequestResponse = zod.object({
 /**
  * @summary List only approved sources available for manual lead attribution
  */
+export const listLaunchSourcesResponseCountyCoverageItemMin = 2;
+export const listLaunchSourcesResponseCountyCoverageItemMax = 80;
+
+
+
 export const ListLaunchSourcesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "name": zod.string(),
   "sourceUrl": zod.string().url().nullable(),
-  "countyCoverage": zod.array(zod.enum(['harris', 'fort_bend', 'dallas', 'tarrant'])),
+  "countyCoverage": zod.array(zod.string().min(listLaunchSourcesResponseCountyCoverageItemMin).max(listLaunchSourcesResponseCountyCoverageItemMax)),
   "sourceOwner": zod.string(),
   "accessMethod": zod.enum(['manual_entry', 'public_download', 'authorized_feed', 'api', 'approved_scraping_provider', 'partner_submission', 'other']),
   "assetClasses": zod.array(zod.enum(['storage', 'real_estate', 'estate', 'commercial', 'junk', 'package'])),
