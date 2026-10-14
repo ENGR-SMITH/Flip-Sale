@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Distress Intelligence OS"
+description = "A private operations workspace for reviewing property, estate, storage, commercial, cleanout, and pickup opportunities, coordinating field work, and handling source permissions."
+version = "1.0.0"
+id = "artifacts/distress-intelligence"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19506
+
+[services.development]
+run = "pnpm --filter @workspace/distress-intelligence run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/distress-intelligence", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/distress-intelligence/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19506"
+BASE_PATH = "/"

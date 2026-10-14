@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Distress Intelligence operations API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Operational overview and activity
+  - name: leads
+    description: Evidence-backed opportunity records
+  - name: workers
+    description: Available field workers and crews
+  - name: jobs
+    description: Physical operations jobs
+  - name: intake
+    description: Public client service requests and operator review
 paths:
   /healthz:
     get:
@@ -24,13 +34,1667 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get current operational totals
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent lead and job activity
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 12
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: Search and filter leads
+      parameters:
+        - name: assetClass
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AssetClass"
+        - name: stage
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/LeadStage"
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+      responses:
+        "200":
+          description: Matching leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lead"
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Create a lead and calculate its current score and route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "201":
+          description: Created lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "400":
+          description: Invalid lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /leads/{id}:
+    get:
+      operationId: getLead
+      tags: [leads]
+      summary: Get a lead
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateLead
+      tags: [leads]
+      summary: Update a lead and recalculate its current score and route
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadUpdate"
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "400":
+          description: Invalid lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteLead
+      tags: [leads]
+      summary: Delete a lead
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Lead deleted
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /leads/{id}/evidence:
+    get:
+      operationId: listLeadEvidence
+      tags: [leads]
+      summary: List the provenance records attached to a lead
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Lead evidence, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadEvidence"
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: addLeadEvidence
+      tags: [leads]
+      summary: Add an append-only provenance record to a lead
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadEvidenceInput"
+      responses:
+        "201":
+          description: Evidence record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadEvidence"
+        "400":
+          description: Invalid evidence record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /leads/{id}/authority-reviews:
+    get:
+      operationId: listEstateAuthorityReviews
+      tags: [leads]
+      summary: List the immutable authority review history for a lead
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Authority review history, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EstateAuthorityReview"
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: addEstateAuthorityReview
+      tags: [leads]
+      summary: Record an append-only estate authority decision
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstateAuthorityReviewInput"
+      responses:
+        "201":
+          description: Authority review recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstateAuthorityReview"
+        "400":
+          description: Invalid authority review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources:
+    get:
+      operationId: listSources
+      tags: [sources]
+      summary: List registered sources and their current permission review state
+      responses:
+        "200":
+          description: Sources owned by the signed-in operator
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Source"
+    post:
+      operationId: createSource
+      tags: [sources]
+      summary: Register a source without approving it for use
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceInput"
+      responses:
+        "201":
+          description: Source registered in pending review state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          description: Invalid source details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/{id}:
+    patch:
+      operationId: updateSource
+      tags: [sources]
+      summary: Update source details; changes to approved details return the source to pending review
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceUpdate"
+      responses:
+        "200":
+          description: Updated source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          description: Invalid source details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/{id}/reviews:
+    get:
+      operationId: listSourceReviews
+      tags: [sources]
+      summary: List the immutable permission review history for a source
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Source review history, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceReview"
+        "404":
+          description: Source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: addSourceReview
+      tags: [sources]
+      summary: Record an explicit source permission and terms review
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceReviewInput"
+      responses:
+        "201":
+          description: Source review recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceReview"
+        "400":
+          description: Source review cannot be recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/{id}/collection:
+    post:
+      operationId: updateSourceCollection
+      tags: [sources]
+      summary: Enable or pause scheduled collection for an approved source
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceCollectionUpdate"
+      responses:
+        "200":
+          description: Updated collection settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          description: Source cannot be collected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Source not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/{id}/runs:
+    post:
+      operationId: runSourceCollection
+      tags: [sources]
+      summary: Start an immediate collection run for an approved source
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "202":
+          description: Collection run accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceRun"
+        "400":
+          description: Source cannot be collected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Apify is not configured for scraping-provider sources
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/runs:
+    get:
+      operationId: listSourceRuns
+      tags: [sources]
+      summary: List collection runs
+      parameters:
+        - name: sourceId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        "200":
+          description: Collection runs for the signed-in operator
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceRun"
+  /sources/runs/{id}/refresh:
+    post:
+      operationId: refreshSourceRun
+      tags: [sources]
+      summary: Refresh a collection run and import provider data when available
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Refreshed collection run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceRun"
+        "404":
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/observations:
+    get:
+      operationId: listSourceObservations
+      tags: [sources]
+      summary: List updates collected from approved sources for human review
+      parameters:
+        - name: assetClass
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AssetClass"
+        - name: reviewStatus
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/SourceObservationStatus"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Source observations for the signed-in operator
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceObservation"
+  /sources/observations/{id}:
+    patch:
+      operationId: updateSourceObservation
+      tags: [sources]
+      summary: Dismiss or return a collected update to the review queue
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceObservationUpdate"
+      responses:
+        "200":
+          description: Updated source observation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceObservation"
+        "404":
+          description: Observation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sources/observations/{id}/lead:
+    post:
+      operationId: convertSourceObservationToLead
+      tags: [sources, leads]
+      summary: Create a reviewed lead and attach the collected observation as evidence
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "201":
+          description: Created lead and marked the observation as converted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceObservationLeadResult"
+        "400":
+          description: Lead details are invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Observation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /client/requests:
+    post:
+      operationId: createClientServiceRequest
+      tags: [intake]
+      summary: Submit a service inquiry from the public client portal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientServiceRequestInput"
+      responses:
+        "201":
+          description: Service request received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientServiceRequestSubmitted"
+        "400":
+          description: Request details are invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests from this connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: listClientServiceRequests
+      tags: [intake]
+      summary: List client service requests for operator review
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ClientServiceRequestStatus"
+      responses:
+        "200":
+          description: Client requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientServiceRequest"
+  /client/requests/{id}:
+    patch:
+      operationId: updateClientServiceRequest
+      tags: [intake]
+      summary: Update a client request's review status or internal note
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientServiceRequestUpdate"
+      responses:
+        "200":
+          description: Updated client request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientServiceRequest"
+        "404":
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /launch/sources:
+    get:
+      operationId: listLaunchSources
+      tags: [sources]
+      summary: List only approved sources available for manual lead attribution
+      responses:
+        "200":
+          description: Sources approved for the launch workspace
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Source"
+  /workers:
+    get:
+      operationId: listWorkers
+      tags: [workers]
+      summary: List field workers and optional proximity to a job
+      parameters:
+        - name: available
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: jobId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Matching workers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Worker"
+    post:
+      operationId: createWorker
+      tags: [workers]
+      summary: Add a worker or crew profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerInput"
+      responses:
+        "201":
+          description: Created worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+        "400":
+          description: Invalid worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /workers/{id}:
+    patch:
+      operationId: updateWorker
+      tags: [workers]
+      summary: Update a worker or crew profile
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkerUpdate"
+      responses:
+        "200":
+          description: Updated worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+        "400":
+          description: Invalid worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWorker
+      tags: [workers]
+      summary: Remove a worker profile
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Worker deleted
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List physical operations jobs
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/JobStatus"
+        - name: leadId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Matching jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Schedule a physical operations job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Created job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /jobs/{id}:
+    patch:
+      operationId: updateJob
+      tags: [jobs]
+      summary: Update a job, its status, or its worker assignment
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobUpdate"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Delete a job
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Job deleted
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     HealthStatus:
       type: object
+      additionalProperties: false
       properties:
         status:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+      required: [error]
+    AssetClass:
+      type: string
+      enum: [storage, real_estate, estate, commercial, junk, package]
+    LaunchCounty:
+      type: string
+      enum: [harris, fort_bend, dallas, tarrant]
+    EstateAuthorityStatus:
+      type: string
+      enum: [unknown, verified, rejected]
+    SourceAccessMethod:
+      type: string
+      enum: [manual_entry, public_download, authorized_feed, api, approved_scraping_provider, partner_submission, other]
+    SourcePermissionStatus:
+      type: string
+      enum: [pending, approved, rejected]
+    LeadStage:
+      type: string
+      enum: [detected, researched, contacted, negotiating, under_contract, monetizing, settled, dead]
+    LeadDecision:
+      type: string
+      enum: [bid, conditional_bid, watch, pass, contract, option_refer, cleanout_consign, hybrid, refer, run, review]
+    JobStatus:
+      type: string
+      enum: [open, invited, assigned, in_progress, completed, cancelled]
+    RiskFlag:
+      type: string
+      enum:
+        - biohazard
+        - drug_paraphernalia
+        - water_damage
+        - paperwork_only
+        - firearm_without_ffl
+        - unclear_vehicle_title
+        - unresolvable_title
+        - owner_refuses
+        - occupancy_outside_scope
+        - unlicensed_jurisdiction
+        - heir_dispute
+        - no_signed_authorization
+        - hoarding_remediation_required
+    ScoreContribution:
+      type: object
+      additionalProperties: false
+      properties:
+        input: { type: string }
+        weight: { type: number }
+        score: { type: ["number", "null"] }
+        contribution: { type: number }
+      required: [input, weight, score, contribution]
+    CurrencyTotal:
+      type: object
+      additionalProperties: false
+      properties:
+        currencyCode: { type: string, pattern: "^[A-Z]{3}$" }
+        amount: { type: number }
+      required: [currencyCode, amount]
+    Lead:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        assetClass: { $ref: "#/components/schemas/AssetClass" }
+        stage: { $ref: "#/components/schemas/LeadStage" }
+        location: { type: string }
+        source: { type: string }
+        sourceId: { type: ["string", "null"], format: uuid }
+        distressSignal: { type: string }
+        estateAuthorityStatus: { $ref: "#/components/schemas/EstateAuthorityStatus" }
+        estateAuthorityEvidenceRef: { type: ["string", "null"] }
+        estateAuthorityReviewerId: { type: ["string", "null"] }
+        estateAuthorityReviewedAt: { type: ["string", "null"], format: date-time }
+        nextAction: { type: ["string", "null"], minLength: 1, maxLength: 500 }
+        nextActionDueAt: { type: ["string", "null"], format: date-time }
+        noNextActionReason: { type: ["string", "null"], minLength: 1, maxLength: 500 }
+        contactName: { type: ["string", "null"] }
+        contactEmail: { type: ["string", "null"], format: email }
+        contactPhone: { type: ["string", "null"] }
+        contactStatus: { type: string, enum: [unknown, qualified, do_not_contact] }
+        currencyCode: { type: ["string", "null"], pattern: "^[A-Z]{3}$" }
+        riskFlags:
+          type: array
+          items: { $ref: "#/components/schemas/RiskFlag" }
+        businessSharePercent: { type: ["number", "null"] }
+        resellableItemsFound: { type: ["boolean", "null"] }
+        eventDate: { type: ["string", "null"], format: date-time }
+        score: { type: ["number", "null"] }
+        decision: { $ref: "#/components/schemas/LeadDecision" }
+        expectedValue: { type: ["number", "null"] }
+        netToBusinessValue: { type: ["number", "null"] }
+        recommendedBid: { type: ["number", "null"] }
+        mao: { type: ["number", "null"] }
+        requiredAssignmentFee: { type: ["number", "null"] }
+        scoringVersion: { type: ["string", "null"] }
+        scoreBreakdown:
+          type: array
+          items: { $ref: "#/components/schemas/ScoreContribution" }
+        missingInputs:
+          type: array
+          items: { type: string }
+        hardVetoes:
+          type: array
+          items: { type: string }
+        brandVisibility: { type: ["number", "null"] }
+        containerComposition: { type: ["number", "null"] }
+        facilityTier: { type: ["number", "null"] }
+        scrapCoverage: { type: ["number", "null"] }
+        ownerContext: { type: ["number", "null"] }
+        unitVisibility: { type: ["number", "null"] }
+        cleanoutEase: { type: ["number", "null"] }
+        auctionHorizon: { type: ["number", "null"] }
+        resaleEstimate: { type: ["number", "null"] }
+        resaleProbability: { type: ["number", "null"] }
+        scrapFloor: { type: ["number", "null"] }
+        cleanoutCost: { type: ["number", "null"] }
+        dumpFees: { type: ["number", "null"] }
+        arv: { type: ["number", "null"] }
+        repairCost: { type: ["number", "null"] }
+        contractPrice: { type: ["number", "null"] }
+        discountToMao: { type: ["number", "null"] }
+        motivationScore: { type: ["number", "null"] }
+        timelineScore: { type: ["number", "null"] }
+        titleClarity: { type: ["number", "null"] }
+        buyerLiquidity: { type: ["number", "null"] }
+        toolsEstimate: { type: ["number", "null"] }
+        electronicsEstimate: { type: ["number", "null"] }
+        furnitureEstimate: { type: ["number", "null"] }
+        householdEstimate: { type: ["number", "null"] }
+        clothingEstimate: { type: ["number", "null"] }
+        estimatedContentsEv: { type: ["number", "null"] }
+        executorCooperation: { type: ["number", "null"] }
+        resaleDensity: { type: ["number", "null"] }
+        accessLogistics: { type: ["number", "null"] }
+        scrapEstimate: { type: ["number", "null"] }
+        runnerPayout: { type: ["number", "null"] }
+        serviceRadiusKm: { type: ["number", "null"] }
+        distanceKm: { type: ["number", "null"] }
+        latitude: { type: ["number", "null"] }
+        longitude: { type: ["number", "null"] }
+        evidenceUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required:
+        - id
+        - title
+        - assetClass
+        - stage
+        - location
+        - source
+        - sourceId
+        - distressSignal
+        - estateAuthorityStatus
+        - estateAuthorityEvidenceRef
+        - estateAuthorityReviewerId
+        - estateAuthorityReviewedAt
+        - nextAction
+        - nextActionDueAt
+        - noNextActionReason
+        - contactName
+        - contactEmail
+        - contactPhone
+        - contactStatus
+        - currencyCode
+        - riskFlags
+        - businessSharePercent
+        - resellableItemsFound
+        - eventDate
+        - score
+        - decision
+        - expectedValue
+        - netToBusinessValue
+        - recommendedBid
+        - mao
+        - requiredAssignmentFee
+        - scoringVersion
+        - scoreBreakdown
+        - missingInputs
+        - hardVetoes
+        - brandVisibility
+        - containerComposition
+        - facilityTier
+        - scrapCoverage
+        - ownerContext
+        - unitVisibility
+        - cleanoutEase
+        - auctionHorizon
+        - resaleEstimate
+        - resaleProbability
+        - scrapFloor
+        - cleanoutCost
+        - dumpFees
+        - arv
+        - repairCost
+        - contractPrice
+        - discountToMao
+        - motivationScore
+        - timelineScore
+        - titleClarity
+        - buyerLiquidity
+        - toolsEstimate
+        - electronicsEstimate
+        - furnitureEstimate
+        - householdEstimate
+        - clothingEstimate
+        - estimatedContentsEv
+        - executorCooperation
+        - resaleDensity
+        - accessLogistics
+        - scrapEstimate
+        - runnerPayout
+        - serviceRadiusKm
+        - distanceKm
+        - latitude
+        - longitude
+        - evidenceUrl
+        - createdAt
+        - updatedAt
+    LeadInput:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 180 }
+        assetClass: { $ref: "#/components/schemas/AssetClass" }
+        stage: { $ref: "#/components/schemas/LeadStage" }
+        location: { type: string, maxLength: 240 }
+        source: { type: string, maxLength: 240 }
+        sourceId: { type: ["string", "null"], format: uuid }
+        distressSignal: { type: string, maxLength: 500 }
+        nextAction: { type: ["string", "null"], minLength: 1, maxLength: 500 }
+        nextActionDueAt: { type: ["string", "null"], format: date-time }
+        noNextActionReason: { type: ["string", "null"], minLength: 1, maxLength: 500 }
+        contactName: { type: ["string", "null"], maxLength: 180 }
+        contactEmail: { type: ["string", "null"], format: email }
+        contactPhone: { type: ["string", "null"], maxLength: 80 }
+        contactStatus: { type: string, enum: [unknown, qualified, do_not_contact] }
+        currencyCode: { type: ["string", "null"], pattern: "^[A-Z]{3}$" }
+        riskFlags:
+          type: array
+          items: { $ref: "#/components/schemas/RiskFlag" }
+          maxItems: 20
+        businessSharePercent: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        resellableItemsFound: { type: ["boolean", "null"] }
+        eventDate: { type: ["string", "null"], format: date-time }
+        brandVisibility: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        containerComposition: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        facilityTier: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        scrapCoverage: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        ownerContext: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        unitVisibility: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        cleanoutEase: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        auctionHorizon: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        resaleEstimate: { type: ["number", "null"], minimum: 0 }
+        resaleProbability: { type: ["number", "null"], minimum: 0, maximum: 1 }
+        scrapFloor: { type: ["number", "null"], minimum: 0 }
+        cleanoutCost: { type: ["number", "null"], minimum: 0 }
+        dumpFees: { type: ["number", "null"], minimum: 0 }
+        arv: { type: ["number", "null"], minimum: 0 }
+        repairCost: { type: ["number", "null"], minimum: 0 }
+        contractPrice: { type: ["number", "null"], minimum: 0 }
+        discountToMao: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        motivationScore: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        timelineScore: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        titleClarity: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        buyerLiquidity: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        toolsEstimate: { type: ["number", "null"], minimum: 0 }
+        electronicsEstimate: { type: ["number", "null"], minimum: 0 }
+        furnitureEstimate: { type: ["number", "null"], minimum: 0 }
+        householdEstimate: { type: ["number", "null"], minimum: 0 }
+        clothingEstimate: { type: ["number", "null"], minimum: 0 }
+        estimatedContentsEv: { type: ["number", "null"] }
+        executorCooperation: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        resaleDensity: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        accessLogistics: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        scrapEstimate: { type: ["number", "null"], minimum: 0 }
+        runnerPayout: { type: ["number", "null"], minimum: 0 }
+        serviceRadiusKm: { type: ["number", "null"], minimum: 0 }
+        distanceKm: { type: ["number", "null"], minimum: 0 }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+        evidenceUrl: { type: ["string", "null"], format: uri }
+      required: [title, assetClass, stage, location, source, distressSignal, nextAction, nextActionDueAt, noNextActionReason]
+    LeadUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 180 }
+        assetClass: { $ref: "#/components/schemas/AssetClass" }
+        stage: { $ref: "#/components/schemas/LeadStage" }
+        location: { type: string, maxLength: 240 }
+        source: { type: string, maxLength: 240 }
+        sourceId: { type: ["string", "null"], format: uuid }
+        distressSignal: { type: string, maxLength: 500 }
+        nextAction: { type: ["string", "null"], minLength: 1, maxLength: 500 }
+        nextActionDueAt: { type: ["string", "null"], format: date-time }
+        noNextActionReason: { type: ["string", "null"], minLength: 1, maxLength: 500 }
+        contactName: { type: ["string", "null"], maxLength: 180 }
+        contactEmail: { type: ["string", "null"], format: email }
+        contactPhone: { type: ["string", "null"], maxLength: 80 }
+        contactStatus: { type: string, enum: [unknown, qualified, do_not_contact] }
+        currencyCode: { type: ["string", "null"], pattern: "^[A-Z]{3}$" }
+        riskFlags:
+          type: array
+          items: { $ref: "#/components/schemas/RiskFlag" }
+          maxItems: 20
+        businessSharePercent: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        resellableItemsFound: { type: ["boolean", "null"] }
+        eventDate: { type: ["string", "null"], format: date-time }
+        brandVisibility: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        containerComposition: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        facilityTier: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        scrapCoverage: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        ownerContext: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        unitVisibility: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        cleanoutEase: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        auctionHorizon: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        resaleEstimate: { type: ["number", "null"], minimum: 0 }
+        resaleProbability: { type: ["number", "null"], minimum: 0, maximum: 1 }
+        scrapFloor: { type: ["number", "null"], minimum: 0 }
+        cleanoutCost: { type: ["number", "null"], minimum: 0 }
+        dumpFees: { type: ["number", "null"], minimum: 0 }
+        arv: { type: ["number", "null"], minimum: 0 }
+        repairCost: { type: ["number", "null"], minimum: 0 }
+        contractPrice: { type: ["number", "null"], minimum: 0 }
+        discountToMao: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        motivationScore: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        timelineScore: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        titleClarity: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        buyerLiquidity: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        toolsEstimate: { type: ["number", "null"], minimum: 0 }
+        electronicsEstimate: { type: ["number", "null"], minimum: 0 }
+        furnitureEstimate: { type: ["number", "null"], minimum: 0 }
+        householdEstimate: { type: ["number", "null"], minimum: 0 }
+        clothingEstimate: { type: ["number", "null"], minimum: 0 }
+        estimatedContentsEv: { type: ["number", "null"] }
+        executorCooperation: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        resaleDensity: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        accessLogistics: { type: ["number", "null"], minimum: 0, maximum: 100 }
+        scrapEstimate: { type: ["number", "null"], minimum: 0 }
+        runnerPayout: { type: ["number", "null"], minimum: 0 }
+        serviceRadiusKm: { type: ["number", "null"], minimum: 0 }
+        distanceKm: { type: ["number", "null"], minimum: 0 }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+        evidenceUrl: { type: ["string", "null"], format: uri }
+    LeadEvidenceSource:
+      type: string
+      enum: [public_record, court_record, listing, referral, site_observation, other]
+    EvidenceConfidence:
+      type: string
+      enum: [not_assessed, low, medium, high]
+    LeadEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        leadId: { type: string, format: uuid }
+        sourceType: { $ref: "#/components/schemas/LeadEvidenceSource" }
+        sourceName: { type: string }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        collectionMethod: { type: string }
+        observedAt: { type: string, format: date-time }
+        confidence: { $ref: "#/components/schemas/EvidenceConfidence" }
+        summary: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, leadId, sourceType, sourceName, sourceUrl, collectionMethod, observedAt, confidence, summary, createdAt]
+    LeadEvidenceInput:
+      type: object
+      additionalProperties: false
+      properties:
+        sourceType: { $ref: "#/components/schemas/LeadEvidenceSource" }
+        sourceName: { type: string, minLength: 1, maxLength: 180 }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        collectionMethod: { type: string, minLength: 1, maxLength: 180 }
+        observedAt: { type: string, format: date-time }
+        confidence: { $ref: "#/components/schemas/EvidenceConfidence" }
+        summary: { type: string, minLength: 1, maxLength: 1200 }
+      required: [sourceType, sourceName, sourceUrl, collectionMethod, observedAt, confidence, summary]
+    EstateAuthorityReview:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        leadId: { type: string, format: uuid }
+        previousStatus: { $ref: "#/components/schemas/EstateAuthorityStatus" }
+        status: { $ref: "#/components/schemas/EstateAuthorityStatus" }
+        evidenceRef: { type: ["string", "null"], maxLength: 500 }
+        reviewerId: { type: string }
+        reviewedAt: { type: string, format: date-time }
+        reviewNotes: { type: string }
+      required: [id, leadId, previousStatus, status, evidenceRef, reviewerId, reviewedAt, reviewNotes]
+    EstateAuthorityReviewInput:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { $ref: "#/components/schemas/EstateAuthorityStatus" }
+        evidenceRef: { type: ["string", "null"], maxLength: 500 }
+        reviewNotes: { type: string, minLength: 1, maxLength: 1200 }
+      required: [status, evidenceRef, reviewNotes]
+    Source:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        countyCoverage:
+          type: array
+          items: { $ref: "#/components/schemas/LaunchCounty" }
+        sourceOwner: { type: string }
+        accessMethod: { $ref: "#/components/schemas/SourceAccessMethod" }
+        assetClasses:
+          type: array
+          items: { $ref: "#/components/schemas/AssetClass" }
+        apifyActorId: { $ref: "#/components/schemas/ApifyActorId" }
+        collectionEnabled: { type: boolean }
+        collectionIntervalHours: { type: integer }
+        collectionMaxPages: { type: integer }
+        lastCollectedAt: { type: ["string", "null"], format: date-time }
+        nextCollectionAt: { type: ["string", "null"], format: date-time }
+        costRateNotes: { type: string }
+        retentionNotes: { type: string }
+        permissionStatus: { $ref: "#/components/schemas/SourcePermissionStatus" }
+        permissionReviewerId: { type: ["string", "null"] }
+        permissionReviewedAt: { type: ["string", "null"], format: date-time }
+        permissionReviewNotes: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, sourceUrl, countyCoverage, sourceOwner, accessMethod, assetClasses, apifyActorId, collectionEnabled, collectionIntervalHours, collectionMaxPages, lastCollectedAt, nextCollectionAt, costRateNotes, retentionNotes, permissionStatus, permissionReviewerId, permissionReviewedAt, permissionReviewNotes, createdAt, updatedAt]
+    SourceInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 180 }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        countyCoverage:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/LaunchCounty" }
+        sourceOwner: { type: string, minLength: 1, maxLength: 180 }
+        accessMethod: { $ref: "#/components/schemas/SourceAccessMethod" }
+        assetClasses:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items: { $ref: "#/components/schemas/AssetClass" }
+        apifyActorId: { $ref: "#/components/schemas/ApifyActorId" }
+        collectionIntervalHours: { type: integer, minimum: 6, maximum: 168 }
+        collectionMaxPages: { type: integer, minimum: 1, maximum: 100 }
+        costRateNotes: { type: string, minLength: 1, maxLength: 1200 }
+        retentionNotes: { type: string, minLength: 1, maxLength: 1200 }
+      required: [name, sourceUrl, countyCoverage, sourceOwner, accessMethod, assetClasses, apifyActorId, collectionIntervalHours, collectionMaxPages, costRateNotes, retentionNotes]
+    SourceUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 180 }
+        sourceUrl: { type: ["string", "null"], format: uri }
+        countyCoverage:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/LaunchCounty" }
+        sourceOwner: { type: string, minLength: 1, maxLength: 180 }
+        accessMethod: { $ref: "#/components/schemas/SourceAccessMethod" }
+        assetClasses:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items: { $ref: "#/components/schemas/AssetClass" }
+        apifyActorId: { $ref: "#/components/schemas/ApifyActorId" }
+        collectionIntervalHours: { type: integer, minimum: 6, maximum: 168 }
+        collectionMaxPages: { type: integer, minimum: 1, maximum: 100 }
+        costRateNotes: { type: string, minLength: 1, maxLength: 1200 }
+        retentionNotes: { type: string, minLength: 1, maxLength: 1200 }
+      minProperties: 1
+    ApifyActorId:
+      type: ["string", "null"]
+      enum: [apify/website-content-crawler, apify/web-scraper, null]
+    SourceCollectionUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        intervalHours: { type: integer, minimum: 6, maximum: 168 }
+      required: [enabled, intervalHours]
+    SourceRunStatus:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    SourceRun:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        sourceName: { type: string }
+        actorId: { type: string, minLength: 1 }
+        providerRunId: { type: ["string", "null"] }
+        status: { $ref: "#/components/schemas/SourceRunStatus" }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }
+        itemsFound: { type: integer }
+        observationsAdded: { type: integer }
+        errorSummary: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+      required: [id, sourceId, sourceName, actorId, providerRunId, status, startedAt, completedAt, itemsFound, observationsAdded, errorSummary, createdAt]
+    SourceObservationStatus:
+      type: string
+      enum: [needs_review, converted_to_lead, dismissed]
+    SourceObservation:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        sourceName: { type: string }
+        runId: { type: string, format: uuid }
+        assetClass: { $ref: "#/components/schemas/AssetClass" }
+        title: { type: ["string", "null"] }
+        observedUrl: { type: string, format: uri }
+        summary: { type: string }
+        contactName: { type: ["string", "null"] }
+        contactEmail: { type: ["string", "null"], format: email }
+        contactPhone: { type: ["string", "null"] }
+        publishedAt: { type: ["string", "null"], format: date-time }
+        discoveredAt: { type: string, format: date-time }
+        reviewStatus: { $ref: "#/components/schemas/SourceObservationStatus" }
+        leadId: { type: ["string", "null"], format: uuid }
+        createdAt: { type: string, format: date-time }
+      required: [id, sourceId, sourceName, runId, assetClass, title, observedUrl, summary, contactName, contactEmail, contactPhone, publishedAt, discoveredAt, reviewStatus, leadId, createdAt]
+    SourceObservationUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        reviewStatus:
+          type: string
+          enum: [needs_review, dismissed]
+      required: [reviewStatus]
+    SourceObservationLeadResult:
+      type: object
+      additionalProperties: false
+      properties:
+        lead: { $ref: "#/components/schemas/Lead" }
+        observation: { $ref: "#/components/schemas/SourceObservation" }
+      required: [lead, observation]
+    ClientServiceRequestStatus:
+      type: string
+      enum: [new, reviewing, contacted, scheduled, closed]
+    ClientServiceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        serviceClass: { $ref: "#/components/schemas/AssetClass" }
+        fullName: { type: string }
+        email: { type: string, format: email }
+        phone: { type: ["string", "null"] }
+        jobLocation: { type: string }
+        description: { type: string }
+        preferredDate: { type: ["string", "null"], format: date }
+        consentToContact: { type: boolean }
+        status: { $ref: "#/components/schemas/ClientServiceRequestStatus" }
+        operatorNote: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, serviceClass, fullName, email, phone, jobLocation, description, preferredDate, consentToContact, status, operatorNote, createdAt, updatedAt]
+    ClientServiceRequestInput:
+      type: object
+      additionalProperties: false
+      properties:
+        serviceClass: { $ref: "#/components/schemas/AssetClass" }
+        fullName: { type: string, minLength: 1, maxLength: 160 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: ["string", "null"], maxLength: 80 }
+        jobLocation: { type: string, minLength: 2, maxLength: 240 }
+        description: { type: string, minLength: 10, maxLength: 1600 }
+        preferredDate: { type: ["string", "null"], format: date }
+        consentToContact: { type: boolean, const: true }
+      required: [serviceClass, fullName, email, phone, jobLocation, description, preferredDate, consentToContact]
+    ClientServiceRequestSubmitted:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: { type: string, format: uuid }
+        submittedAt: { type: string, format: date-time }
+        message: { type: string }
+      required: [requestId, submittedAt, message]
+    ClientServiceRequestUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { $ref: "#/components/schemas/ClientServiceRequestStatus" }
+        operatorNote: { type: ["string", "null"], maxLength: 1200 }
+      minProperties: 1
+    SourceReview:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        previousStatus: { $ref: "#/components/schemas/SourcePermissionStatus" }
+        status: { $ref: "#/components/schemas/SourcePermissionStatus" }
+        reviewerId: { type: string }
+        reviewedAt: { type: string, format: date-time }
+        reviewNotes: { type: string }
+      required: [id, sourceId, previousStatus, status, reviewerId, reviewedAt, reviewNotes]
+    SourceReviewInput:
+      type: object
+      additionalProperties: false
+      properties:
+        status: { $ref: "#/components/schemas/SourcePermissionStatus" }
+        reviewNotes: { type: string, minLength: 1, maxLength: 1200 }
+      required: [status, reviewNotes]
+    DashboardSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        totalLeads: { type: integer }
+        needsResearch: { type: integer }
+        awaitingReview: { type: integer }
+        activeDeals: { type: integer }
+        openJobs: { type: integer }
+        availableWorkers: { type: integer }
+        expectedPipelineValueByCurrency:
+          type: array
+          items: { $ref: "#/components/schemas/CurrencyTotal" }
+        byAssetClass:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetClassCount"
+        byStage:
+          type: array
+          items:
+            $ref: "#/components/schemas/StageCount"
+      required: [totalLeads, needsResearch, awaitingReview, activeDeals, openJobs, availableWorkers, expectedPipelineValueByCurrency, byAssetClass, byStage]
+    AssetClassCount:
+      type: object
+      additionalProperties: false
+      properties:
+        assetClass: { $ref: "#/components/schemas/AssetClass" }
+        count: { type: integer }
+      required: [assetClass, count]
+    StageCount:
+      type: object
+      additionalProperties: false
+      properties:
+        stage: { $ref: "#/components/schemas/LeadStage" }
+        count: { type: integer }
+      required: [stage, count]
+    ActivityItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [lead_created, lead_updated, evidence_added, job_created, job_updated] }
+        title: { type: string }
+        detail: { type: string }
+        occurredAt: { type: string, format: date-time }
+      required: [id, kind, title, detail, occurredAt]
+    Worker:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        homeArea: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        isAvailable: { type: boolean }
+        serviceRadiusKm: { type: number }
+        locationConfigured: { type: boolean }
+        distanceKm: { type: ["number", "null"] }
+        eligibleForJob: { type: ["boolean", "null"] }
+        withinServiceRadius: { type: ["boolean", "null"] }
+        matchReasons:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, displayName, homeArea, skills, isAvailable, serviceRadiusKm, locationConfigured, distanceKm, eligibleForJob, withinServiceRadius, matchReasons, createdAt, updatedAt]
+    WorkerInput:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        homeArea: { type: string, minLength: 1, maxLength: 240 }
+        skills:
+          type: array
+          items: { type: string, maxLength: 80 }
+          maxItems: 20
+        isAvailable: { type: boolean }
+        serviceRadiusKm: { type: number, minimum: 0 }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+      required: [displayName, homeArea, skills, isAvailable, serviceRadiusKm]
+    WorkerUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 160 }
+        homeArea: { type: string, minLength: 1, maxLength: 240 }
+        skills:
+          type: array
+          items: { type: string, maxLength: 80 }
+          maxItems: 20
+        isAvailable: { type: boolean }
+        serviceRadiusKm: { type: number, minimum: 0 }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+    Job:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        leadId: { type: ["string", "null"], format: uuid }
+        title: { type: string }
+        jobType: { type: string, enum: [pickup, cleanout, scrap_run, meetup, other] }
+        location: { type: string }
+        scheduledAt: { type: ["string", "null"], format: date-time }
+        requiredSkills:
+          type: array
+          items: { type: string }
+        estimatedHours: { type: ["number", "null"] }
+        payoutAmount: { type: ["number", "null"] }
+        currencyCode: { type: ["string", "null"], pattern: "^[A-Z]{3}$" }
+        payoutStructure: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        workerId: { type: ["string", "null"], format: uuid }
+        workerName: { type: ["string", "null"] }
+        latitude: { type: ["number", "null"] }
+        longitude: { type: ["number", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, leadId, title, jobType, location, scheduledAt, requiredSkills, estimatedHours, payoutAmount, currencyCode, payoutStructure, status, workerId, workerName, latitude, longitude, createdAt, updatedAt]
+    JobInput:
+      type: object
+      additionalProperties: false
+      properties:
+        leadId: { type: ["string", "null"], format: uuid }
+        title: { type: string, minLength: 1, maxLength: 180 }
+        jobType: { type: string, enum: [pickup, cleanout, scrap_run, meetup, other] }
+        location: { type: string, minLength: 1, maxLength: 240 }
+        scheduledAt: { type: ["string", "null"], format: date-time }
+        requiredSkills:
+          type: array
+          items: { type: string, maxLength: 80 }
+          maxItems: 20
+        estimatedHours: { type: ["number", "null"], minimum: 0 }
+        payoutAmount: { type: ["number", "null"], minimum: 0 }
+        currencyCode: { type: ["string", "null"], pattern: "^[A-Z]{3}$" }
+        payoutStructure: { type: string, maxLength: 500 }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        workerId: { type: ["string", "null"], format: uuid }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
+      required: [title, jobType, location, requiredSkills, payoutStructure, status]
+    JobUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        leadId: { type: ["string", "null"], format: uuid }
+        title: { type: string, minLength: 1, maxLength: 180 }
+        jobType: { type: string, enum: [pickup, cleanout, scrap_run, meetup, other] }
+        location: { type: string, minLength: 1, maxLength: 240 }
+        scheduledAt: { type: ["string", "null"], format: date-time }
+        requiredSkills:
+          type: array
+          items: { type: string, maxLength: 80 }
+          maxItems: 20
+        estimatedHours: { type: ["number", "null"], minimum: 0 }
+        payoutAmount: { type: ["number", "null"], minimum: 0 }
+        currencyCode: { type: ["string", "null"], pattern: "^[A-Z]{3}$" }
+        payoutStructure: { type: string, maxLength: 500 }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        workerId: { type: ["string", "null"], format: uuid }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
 

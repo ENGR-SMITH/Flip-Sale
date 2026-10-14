@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Keep local credentials out of source control; use Replit Secrets.
+.env
+.env.*

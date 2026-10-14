@@ -1,0 +1,1 @@
+- [Apify credentials](apify-credentials.md) — use Replit Secrets for APIFY_API_TOKEN; never store its raw value in tracked `.env` or connect Apify integration.

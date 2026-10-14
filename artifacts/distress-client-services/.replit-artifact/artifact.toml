@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/client-services/"
+title = "Distress Client Services"
+description = "A public customer portal for property cleanout, pickup, and related service requests."
+version = "1.0.0"
+id = "artifacts/distress-client-services"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/client-services/" ]
+localPort = 19727
+
+[services.development]
+run = "pnpm --filter @workspace/distress-client-services run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/distress-client-services", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/distress-client-services/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19727"
+BASE_PATH = "/client-services/"
